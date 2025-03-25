@@ -32,6 +32,9 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     "django.contrib.admin",
+    "corsheaders",
+    'rest_framework',
+    'drf_yasg',
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -39,17 +42,28 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 ]
 
+
+CORS_ALLOW_ALL_ORIGINS = False  # Set to True if you want to allow all origins
+CORS_ALLOW_CREDENTIALS = True
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    'corsheaders.middleware.CorsMiddleware',
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "queenfairy.urls"
+
+# CORS SETTINGS
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Add frontend URL here
+    "https://yourfrontenddomain.com",
+]
 
 TEMPLATES = [
     {
