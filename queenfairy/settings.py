@@ -34,13 +34,21 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "corsheaders",
     'rest_framework',
+    'rest_framework_simplejwt',
     'drf_yasg',
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "accounts"
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
 
 
 CORS_ALLOW_ALL_ORIGINS = False  # Set to True if you want to allow all origins
