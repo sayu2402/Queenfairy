@@ -142,5 +142,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.get(email_or_phone=validated_data['email_or_phone'])
         user.first_name = validated_data['first_name']
         user.last_name = validated_data['last_name']
+        user.phone_verified = validated_data['phone_verified']
         user.save()
         return user

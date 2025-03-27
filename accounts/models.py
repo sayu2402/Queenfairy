@@ -32,8 +32,8 @@ class User(AbstractBaseUser):
     email_or_phone = models.CharField(max_length=255, unique=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
-    otp = models.CharField(max_length=6, blank=True, null=True)  # OTP field, optional
-    otp_expiry = models.DateTimeField(blank=True, null=True)  # OTP expiry time
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_expiry = models.DateTimeField(blank=True, null=True)
     verification_choice = models.CharField(max_length=5, choices=CHOICE, default=EMAIL)
     
     # For password management (for future use)
