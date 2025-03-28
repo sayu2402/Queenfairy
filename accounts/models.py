@@ -1,72 +1,61 @@
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.utils import timezone
+import random
+import string
 
-# Create your models here.
-
-
-# Custom Manager for User model
 class UserManager(BaseUserManager):
-    def create_user(self, email_or_phone, password=None, **extra_fields):
-        if not email_or_phone:
-            raise ValueError("The Email/Phone number must be set")
-        user = self.model(email_or_phone=email_or_phone, **extra_fields)
-        user.set_password(password)  # Encrypt password
+    def create_user(self, email=None, phone=None, first_name="", last_name="", password=None, **extra_fields):
+        if not email and not phone:
+            raise ValueError("Either email or phone must be provided.")
+        
+        email = self.normalize_email(email) if email else None
+        user = self.model(email=email, phone=phone, first_name=first_name, last_name=last_name, **extra_fields)
+        
+        if password:  # Allow password in the future
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email_or_phone, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        return self.create_user(email_or_phone, password, **extra_fields)
+    def create_superuser(self, email, password, **extra_fields):
+        extra_fields.setdefault("is_admin", True)
+        extra_fields.setdefault("is_superuser", True)
+        return self.create_user(email=email, password=password, **extra_fields)
 
-# User model
-class User(AbstractBaseUser):
-    EMAIL = 'email'
-    PHONE = 'phone'
-    CHOICE = [
-        (EMAIL, 'Email'),
-        (PHONE, 'Phone'),
-    ]
-    
-    email_or_phone = models.CharField(max_length=255, unique=True)
-    email_verified = models.BooleanField(default=False)
-    phone_verified = models.BooleanField(default=False)
-    otp = models.CharField(max_length=6, blank=True, null=True)
-    otp_expiry = models.DateTimeField(blank=True, null=True)
-    verification_choice = models.CharField(max_length=5, choices=CHOICE, default=EMAIL)
-    
-    # For password management (for future use)
-    password = models.CharField(max_length=255)
-    
+
+class User(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True, blank=True, null=True)
+    phone = models.CharField(max_length=15, unique=True, blank=True, null=True)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    password = models.CharField(max_length=128, blank=True, null=True)  # For future password support
+
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
-    
+    is_admin = models.BooleanField(default=False)  # Admin user flag
+
+    groups = models.ManyToManyField(Group, related_name="custom_user_groups", blank=True)
+    user_permissions = models.ManyToManyField(Permission, related_name="custom_user_permissions", blank=True)
+
+    USERNAME_FIELD = "email"  # Email-based authentication
+    REQUIRED_FIELDS = []  # No mandatory fields since email/phone is dynamic
+
     objects = UserManager()
 
-    USERNAME_FIELD = 'email_or_phone'
-    REQUIRED_FIELDS = ['verification_choice']
-    
     def __str__(self):
-        return self.email_or_phone
-
-    def is_verified(self):
-        if self.verification_choice == self.EMAIL and self.email_verified:
-            return True
-        elif self.verification_choice == self.PHONE and self.phone_verified:
-            return True
-        return False
+        return self.email if self.email else self.phone
 
 
-# OTP Model
 class OTP(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='otp_set')
-    otp_code = models.CharField(max_length=6)
-    expiry_time = models.DateTimeField()
-
-    def __str__(self):
-        return f"OTP {self.otp_code} for {self.user.email_or_phone}"
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def is_expired(self):
-        return timezone.now() > self.expiry_time
+        return timezone.now() > self.created_at + timezone.timedelta(minutes=5)
+
+    @staticmethod
+    def generate_otp():
+        return ''.join(random.choices(string.digits, k=6))
