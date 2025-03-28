@@ -32,8 +32,9 @@ class GenerateOTPView(APIView):
 
         # Save OTP in the database
         OTP.objects.create(
-            user=None,  # No user assigned yet
-            otp=otp_code
+            user=None,
+            otp=otp_code,
+            username=username
         )
 
         # Send OTP via Email or SMS
@@ -48,7 +49,7 @@ class GenerateOTPView(APIView):
             )
         else:
             # Send OTP via Fast2SMS
-            api_key = "YOUR_FAST2SMS_API_KEY"
+            api_key = "FAST2SMS_API_KEY"
             url = f"https://www.fast2sms.com/dev/bulkV2?authorization={api_key}&route=v3&message=Your OTP code is {otp_code}. It expires in 5 minutes.&language=english&flash=0&numbers={username}"
             requests.get(url)
 
@@ -64,8 +65,21 @@ class VerifyOTPView(APIView):
         if not username or not otp_code:
             return Response({"error": "Username and OTP are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if OTP is valid
-        otp_record = OTP.objects.filter(otp=otp_code, created_at__gte=timezone.now() - timedelta(minutes=5)).first()
+        # Debugging: print out the username and otp_code for validation
+        print(f"Received username: {username}, OTP: {otp_code}")
+
+        # Check if OTP is valid (5-minute window check)
+        otp_record = OTP.objects.filter(
+            otp=otp_code,
+            username=username,
+            created_at__gte=timezone.now() - timedelta(minutes=5)
+        ).first()
+
+        # Debugging: Print out the OTP record if found
+        if otp_record:
+            print(f"Found OTP record: {otp_record.otp}, Created at: {otp_record.created_at}")
+        else:
+            print("No OTP record found or OTP is expired.")
 
         if not otp_record:
             return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
@@ -74,6 +88,7 @@ class VerifyOTPView(APIView):
         request.session["verified_username"] = username
 
         return Response({"message": "OTP verified. Proceed with registration."}, status=status.HTTP_200_OK)
+
 
 
 

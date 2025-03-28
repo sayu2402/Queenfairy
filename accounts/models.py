@@ -50,6 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class OTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    username = models.CharField(max_length=255)  # Stores email or phone
     otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -59,3 +60,4 @@ class OTP(models.Model):
     @staticmethod
     def generate_otp():
         return ''.join(random.choices(string.digits, k=6))
+
