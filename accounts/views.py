@@ -1,15 +1,13 @@
-import random
-import string
-import requests
-from django.utils import timezone
-from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import User, OTP
-from .serializers import RegisterSerializer
-from datetime import timedelta
+import random
+import string
+import requests
+from django.conf import settings
 from django.core.mail import send_mail
+from .models import User, OTP
+from .serializers import RegisterSerializer, OTPVerifySerializer
 
 
 class GenerateOTPView(APIView):
@@ -57,37 +55,20 @@ class GenerateOTPView(APIView):
 
 
 
+
 class VerifyOTPView(APIView):
     def post(self, request):
-        username = request.data.get("username")  # Can be email or phone
-        otp_code = request.data.get("otp")
+        serializer = OTPVerifySerializer(data=request.data)
 
-        if not username or not otp_code:
-            return Response({"error": "Username and OTP are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if serializer.is_valid():
+            username = serializer.validated_data['username']
 
-        # Debugging: print out the username and otp_code for validation
-        print(f"Received username: {username}, OTP: {otp_code}")
+            # Store verified username in session
+            request.session["verified_username"] = username
 
-        # Check if OTP is valid (5-minute window check)
-        otp_record = OTP.objects.filter(
-            otp=otp_code,
-            username=username,
-            created_at__gte=timezone.now() - timedelta(minutes=5)
-        ).first()
+            return Response({"message": "OTP verified. Proceed with registration."}, status=status.HTTP_200_OK)
 
-        # Debugging: Print out the OTP record if found
-        if otp_record:
-            print(f"Found OTP record: {otp_record.otp}, Created at: {otp_record.created_at}")
-        else:
-            print("No OTP record found or OTP is expired.")
-
-        if not otp_record:
-            return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Store verified email/phone in session
-        request.session["verified_username"] = username
-
-        return Response({"message": "OTP verified. Proceed with registration."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -99,42 +80,37 @@ class RegisterUserView(APIView):
         if not verified_username:
             return Response({"error": "OTP verification required before registration."}, status=status.HTTP_400_BAD_REQUEST)
 
-        first_name = request.data.get("first_name")
-        last_name = request.data.get("last_name")
-        email = None
-        phone = None
+        # Use the serializer to handle registration
+        data = {
+            "first_name": request.data.get("first_name"),
+            "last_name": request.data.get("last_name"),
+        }
 
         if "@" in verified_username:
-            email = verified_username  # Auto-fill email
-            phone = request.data.get("phone")  # User must enter phone (optional)
+            data["email"] = verified_username
+            data["phone"] = request.data.get("phone")
         else:
-            phone = verified_username  # Auto-fill phone
-            email = request.data.get("email")  # User must enter email (optional)
+            data["phone"] = verified_username
+            data["email"] = request.data.get("email")
 
-        if User.objects.filter(email=email).exists():
-            return Response({"error": "Email is already registered."}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate and create user using the serializer
+        serializer = RegisterSerializer(data=data)
 
-        if User.objects.filter(phone=phone).exists():
-            return Response({"error": "Phone number is already registered."}, status=status.HTTP_400_BAD_REQUEST)
+        if serializer.is_valid():
+            user = serializer.save()
 
-        # Create user
-        user = User.objects.create(
-            email=email,
-            phone=phone,
-            first_name=first_name,
-            last_name=last_name
-        )
+            # Clear session after successful registration
+            del request.session["verified_username"]
 
-        # Clear session after successful registration
-        del request.session["verified_username"]
+            return Response({
+                "message": "Registration successful.",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                }
+            }, status=status.HTTP_201_CREATED)
 
-        return Response({
-            "message": "Registration successful.",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "phone": user.phone,
-                "first_name": user.first_name,
-                "last_name": user.last_name
-            }
-        }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
