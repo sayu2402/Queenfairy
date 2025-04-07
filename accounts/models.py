@@ -1,22 +1,43 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+    Group,
+    Permission,
+)
 from django.db import models
 from django.utils import timezone
 import random
 import string
 
+
 class UserManager(BaseUserManager):
-    def create_user(self, email=None, phone=None, first_name="", last_name="", password=None, **extra_fields):
+    def create_user(
+        self,
+        email=None,
+        phone=None,
+        first_name="",
+        last_name="",
+        password=None,
+        **extra_fields
+    ):
         if not email and not phone:
             raise ValueError("Either email or phone must be provided.")
-        
+
         email = self.normalize_email(email) if email else None
-        user = self.model(email=email, phone=phone, first_name=first_name, last_name=last_name, **extra_fields)
-        
+        user = self.model(
+            email=email,
+            phone=phone,
+            first_name=first_name,
+            last_name=last_name,
+            **extra_fields
+        )
+
         if password:  # Allow password in the future
             user.set_password(password)
         else:
             user.set_unusable_password()
-        
+
         user.save(using=self._db)
         return user
 
@@ -31,13 +52,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=15, unique=True, blank=True, null=True)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    password = models.CharField(max_length=128, blank=True, null=True)  # For future password support
+    password = models.CharField(
+        max_length=128, blank=True, null=True
+    )  # For future password support
 
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)  # Admin user flag
 
-    groups = models.ManyToManyField(Group, related_name="custom_user_groups", blank=True)
-    user_permissions = models.ManyToManyField(Permission, related_name="custom_user_permissions", blank=True)
+    groups = models.ManyToManyField(
+        Group, related_name="custom_user_groups", blank=True
+    )
+    user_permissions = models.ManyToManyField(
+        Permission, related_name="custom_user_permissions", blank=True
+    )
 
     USERNAME_FIELD = "email"  # Email-based authentication
     REQUIRED_FIELDS = []  # No mandatory fields since email/phone is dynamic
@@ -59,5 +86,4 @@ class OTP(models.Model):
 
     @staticmethod
     def generate_otp():
-        return ''.join(random.choices(string.digits, k=6))
-
+        return "".join(random.choices(string.digits, k=6))
